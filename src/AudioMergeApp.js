@@ -64,7 +64,7 @@ function AudioMergeApp() {
     formData.append('name_audio', recordings['name']);
     formData.append('city_audio', recordings['city']);
 
-    const response = await fetch('https://your-backend-service.onrender.com/merge', {
+  const response = await fetch('https://backend-voicemerge.onrender.com/merge', {
       method: 'POST',
       body: formData,
     });
