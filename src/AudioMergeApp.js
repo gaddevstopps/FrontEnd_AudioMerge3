@@ -7,7 +7,8 @@ function AudioMergeApp() {
   const [selectedName, setSelectedName] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [baseFiles, setBaseFiles] = useState({});
-  const [recordings, setRecordings] = useState({});
+  const [cityRecordings, setCityRecordings] = useState({});
+  const [nameRecordings, setNameRecordings] = useState({});
   const [ownerIndex, setOwnerIndex] = useState(0);
   const mediaRecorderRef = useRef(null);
   const [recordingType, setRecordingType] = useState('');
@@ -40,10 +41,17 @@ function AudioMergeApp() {
       mediaRecorder.ondataavailable = e => chunks.push(e.data);
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/mp3' });
-        setRecordings(prev => ({
-          ...prev,
-          [type]: blob,
-        }));
+
+        const currentRow = csvData[ownerIndex];
+        if (type === 'city') {
+          const city = currentRow[selectedCity];
+          setCityRecordings(prev => ({ ...prev, [city]: blob }));
+        }
+
+        if (type === 'name') {
+          const name = currentRow[selectedName];
+          setNameRecordings(prev => ({ ...prev, [name]: blob }));
+        }
       };
 
       mediaRecorder.start();
@@ -56,15 +64,30 @@ function AudioMergeApp() {
     }
   };
 
+  const isNameRecorded = () => {
+    const row = csvData[ownerIndex];
+    if (!row) return false;
+    return !!nameRecordings[row[selectedName]];
+  };
+
+  const isCityRecorded = () => {
+    const row = csvData[ownerIndex];
+    if (!row) return false;
+    return !!cityRecordings[row[selectedCity]];
+  };
+
   const handleMerge = async () => {
     const owner = csvData[ownerIndex];
+    const city = owner[selectedCity];
+    const name = owner[selectedName];
+
     const formData = new FormData();
     formData.append('owner_id', ownerIndex);
     formData.append('base_audio', baseFiles['greeting_intro']);
-    formData.append('name_audio', recordings['name']);
-    formData.append('city_audio', recordings['city']);
+    formData.append('name_audio', nameRecordings[name]);
+    formData.append('city_audio', cityRecordings[city]);
 
-  const response = await fetch('https://backend-voicemerge.onrender.com/merge', {
+    const response = await fetch('https://backend-voicemerge.onrender.com/merge', {
       method: 'POST',
       body: formData,
     });
@@ -94,15 +117,20 @@ function AudioMergeApp() {
             {headers.map(h => <option key={h}>{h}</option>)}
           </select>
 
-          <h3>3. Upload Base Audio Files</h3>
+          <h3>3. Upload Base Audio File</h3>
           <input type="file" accept=".mp3" onChange={(e) => handleBaseAudioUpload(e, 'greeting_intro')} />
-          
+
           <h3>4. Record Personalized Audio</h3>
           {csvData[ownerIndex] && (
             <div>
-              <p>Recording for: <strong>{csvData[ownerIndex][selectedName]}</strong> in <strong>{csvData[ownerIndex][selectedCity]}</strong></p>
-              <button onClick={() => startRecording('name')}>Record Name</button>
-              <button onClick={() => startRecording('city')}>Record City</button>
+              <p>
+                Recording for: <strong>{csvData[ownerIndex][selectedName]}</strong> in <strong>{csvData[ownerIndex][selectedCity]}</strong>
+              </p>
+              <p>
+                Name Recorded: {isNameRecorded() ? '✅' : '❌'} | City Recorded: {isCityRecorded() ? '✅' : '❌'}
+              </p>
+              {!isNameRecorded() && <button onClick={() => startRecording('name')}>Record Name</button>}
+              {!isCityRecorded() && <button onClick={() => startRecording('city')}>Record City</button>}
               <button onClick={stopRecording}>Stop Recording</button>
             </div>
           )}
@@ -111,7 +139,9 @@ function AudioMergeApp() {
           <button onClick={handleMerge}>Merge for Current Owner</button>
 
           <h3>6. Move to Next</h3>
-          <button onClick={() => setOwnerIndex(prev => Math.min(prev + 1, csvData.length - 1))}>Next Owner</button>
+          <button onClick={() => setOwnerIndex(prev => Math.min(prev + 1, csvData.length - 1))}>
+            Next Owner
+          </button>
         </>
       )}
     </div>
