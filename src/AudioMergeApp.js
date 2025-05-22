@@ -136,7 +136,13 @@ function AudioMergeApp() {
           )}
 
           <h3>5. Merge Audio</h3>
-          <button onClick={handleMerge}>Merge for Current Owner</button>
+<button
+  onClick={handleMerge}
+  disabled={!isNameRecorded() || !isCityRecorded()}
+  style={{ opacity: !isNameRecorded() || !isCityRecorded() ? 0.5 : 1 }}
+>
+  Merge for Current Owner
+</button>
 
           <h3>6. Move to Next</h3>
           <button onClick={() => setOwnerIndex(prev => Math.min(prev + 1, csvData.length - 1))}>
