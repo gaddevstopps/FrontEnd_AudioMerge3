@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Papa from 'papaparse';
 
 function AudioMergeApp() {
@@ -10,6 +10,7 @@ function AudioMergeApp() {
   const [cityRecordings, setCityRecordings] = useState({});
   const [nameRecordings, setNameRecordings] = useState({});
   const [ownerIndex, setOwnerIndex] = useState(0);
+  const [mergedIndexes, setMergedIndexes] = useState(new Set());
   const mediaRecorderRef = useRef(null);
   const [recordingType, setRecordingType] = useState('');
 
@@ -43,14 +44,23 @@ function AudioMergeApp() {
         const blob = new Blob(chunks, { type: 'audio/mp3' });
 
         const currentRow = csvData[ownerIndex];
+        const name = currentRow[selectedName];
+        const city = currentRow[selectedCity];
+
         if (type === 'city') {
-          const city = currentRow[selectedCity];
           setCityRecordings(prev => ({ ...prev, [city]: blob }));
         }
 
         if (type === 'name') {
-          const name = currentRow[selectedName];
           setNameRecordings(prev => ({ ...prev, [name]: blob }));
+        }
+
+        setRecordingType('');
+
+        const nameReady = type === 'name' || !!nameRecordings[name];
+        const cityReady = type === 'city' || !!cityRecordings[city];
+        if (nameReady && cityReady) {
+          handleMerge();
         }
       };
 
@@ -77,6 +87,8 @@ function AudioMergeApp() {
   };
 
   const handleMerge = async () => {
+    if (mergedIndexes.has(ownerIndex)) return;
+
     const owner = csvData[ownerIndex];
     const city = owner[selectedCity];
     const name = owner[selectedName];
@@ -94,7 +106,31 @@ function AudioMergeApp() {
 
     const result = await response.json();
     alert(JSON.stringify(result));
+
+    setMergedIndexes(prev => new Set(prev).add(ownerIndex));
+
+    setTimeout(() => {
+      const next = ownerIndex + 1;
+      if (next < csvData.length) {
+        setOwnerIndex(next);
+      }
+    }, 300);
   };
+
+  useEffect(() => {
+    const row = csvData[ownerIndex];
+    if (!row) return;
+
+    const name = row[selectedName];
+    const city = row[selectedCity];
+
+    const nameExists = !!nameRecordings[name];
+    const cityExists = !!cityRecordings[city];
+
+    if (nameExists && cityExists && !mergedIndexes.has(ownerIndex)) {
+      handleMerge();
+    }
+  }, [ownerIndex]);
 
   return (
     <div className="container">
@@ -129,25 +165,35 @@ function AudioMergeApp() {
               <p>
                 Name Recorded: {isNameRecorded() ? '✅' : '❌'} | City Recorded: {isCityRecorded() ? '✅' : '❌'}
               </p>
-              {!isNameRecorded() && <button onClick={() => startRecording('name')}>Record Name</button>}
-              {!isCityRecorded() && <button onClick={() => startRecording('city')}>Record City</button>}
-              <button onClick={stopRecording}>Stop Recording</button>
+              {!isNameRecorded() && (
+                <button
+                  onClick={() =>
+                    recordingType === 'name' ? stopRecording() : startRecording('name')
+                  }
+                  style={{
+                    backgroundColor: recordingType === 'name' ? '#e74c3c' : '',
+                    color: recordingType === 'name' ? 'white' : '',
+                    marginRight: '10px',
+                  }}
+                >
+                  {recordingType === 'name' ? 'Stop Recording Name' : 'Record Name'}
+                </button>
+              )}
+              {!isCityRecorded() && (
+                <button
+                  onClick={() =>
+                    recordingType === 'city' ? stopRecording() : startRecording('city')
+                  }
+                  style={{
+                    backgroundColor: recordingType === 'city' ? '#e74c3c' : '',
+                    color: recordingType === 'city' ? 'white' : '',
+                  }}
+                >
+                  {recordingType === 'city' ? 'Stop Recording City' : 'Record City'}
+                </button>
+              )}
             </div>
           )}
-
-          <h3>5. Merge Audio</h3>
-<button
-  onClick={handleMerge}
-  disabled={!isNameRecorded() || !isCityRecorded()}
-  style={{ opacity: !isNameRecorded() || !isCityRecorded() ? 0.5 : 1 }}
->
-  Merge for Current Owner
-</button>
-
-          <h3>6. Move to Next</h3>
-          <button onClick={() => setOwnerIndex(prev => Math.min(prev + 1, csvData.length - 1))}>
-            Next Owner
-          </button>
         </>
       )}
     </div>
