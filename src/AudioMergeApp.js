@@ -15,18 +15,30 @@ function AudioMergeApp() {
   const [recordingType, setRecordingType] = useState('');
 
   const handleCsvUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: function (results) {
-        setCsvData(results.data);
-        setHeaders(Object.keys(results.data[0] || {}));
-      },
-    });
-  };
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function (results) {
+      // Normalize all row keys (headers)
+      const cleanedData = results.data.map(row => {
+        const cleanedRow = {};
+        Object.keys(row).forEach(key => {
+          if (key) cleanedRow[key.trim()] = row[key];
+        });
+        return cleanedRow;
+      });
+
+      // Normalize header list
+      const normalizedHeaders = Object.keys(cleanedData[0] || {}).map(h => h.trim());
+
+      setCsvData(cleanedData);
+      setHeaders(normalizedHeaders);
+    },
+  });
+};
 
   const handleBaseAudioUpload = (e, label) => {
     setBaseFiles(prev => ({ ...prev, [label]: e.target.files[0] }));
