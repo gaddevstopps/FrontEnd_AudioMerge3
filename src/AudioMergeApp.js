@@ -11,34 +11,33 @@ function AudioMergeApp() {
   const [nameRecordings, setNameRecordings] = useState({});
   const [ownerIndex, setOwnerIndex] = useState(0);
   const [mergedIndexes, setMergedIndexes] = useState(new Set());
+  const [recentMerged, setRecentMerged] = useState([]);
   const mediaRecorderRef = useRef(null);
   const [recordingType, setRecordingType] = useState('');
 
   const handleCsvUpload = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: function (results) {
-      // Normalize all row keys (headers)
-      const cleanedData = results.data.map(row => {
-        const cleanedRow = {};
-        Object.keys(row).forEach(key => {
-          if (key) cleanedRow[key.trim()] = row[key];
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function (results) {
+        const cleanedData = results.data.map(row => {
+          const cleanedRow = {};
+          Object.keys(row).forEach(key => {
+            if (key) cleanedRow[key.trim()] = row[key];
+          });
+          return cleanedRow;
         });
-        return cleanedRow;
-      });
 
-      // Normalize header list
-      const normalizedHeaders = Object.keys(cleanedData[0] || {}).map(h => h.trim());
+        const normalizedHeaders = Object.keys(cleanedData[0] || {}).map(h => h.trim());
 
-      setCsvData(cleanedData);
-      setHeaders(normalizedHeaders);
-    },
-  });
-};
+        setCsvData(cleanedData);
+        setHeaders(normalizedHeaders);
+      },
+    });
+  };
 
   const handleBaseAudioUpload = (e, label) => {
     setBaseFiles(prev => ({ ...prev, [label]: e.target.files[0] }));
@@ -121,6 +120,14 @@ function AudioMergeApp() {
 
     setMergedIndexes(prev => new Set(prev).add(ownerIndex));
 
+    // Add to recent preview log
+    if (result.output_file) {
+      setRecentMerged(prev => {
+        const updated = [result.output_file, ...prev];
+        return updated.slice(0, 5);
+      });
+    }
+
     setTimeout(() => {
       const next = ownerIndex + 1;
       if (next < csvData.length) {
@@ -168,6 +175,9 @@ function AudioMergeApp() {
           <h3>3. Upload Base Audio File</h3>
           <input type="file" accept=".mp3" onChange={(e) => handleBaseAudioUpload(e, 'greeting_intro')} />
 
+          <h3>✅ Merges Completed: {mergedIndexes.size} / {csvData.length}</h3>
+          <p>Now Working On: Owner {ownerIndex + 1} of {csvData.length}</p>
+
           <h3>4. Record Personalized Audio</h3>
           {csvData[ownerIndex] && (
             <div>
@@ -204,6 +214,18 @@ function AudioMergeApp() {
                   {recordingType === 'city' ? 'Stop Recording City' : 'Record City'}
                 </button>
               )}
+            </div>
+          )}
+
+          {recentMerged.length > 0 && (
+            <div style={{ marginTop: '2rem' }}>
+              <h3>🎧 Recently Merged Audio</h3>
+              {recentMerged.map((url, index) => (
+                <div key={index} style={{ marginBottom: '1rem' }}>
+                  <p>Merged Output #{mergedIndexes.size - index}</p>
+                  <audio controls src={`https://backend-voicemerge.onrender.com/${url}`} />
+                </div>
+              ))}
             </div>
           )}
         </>
